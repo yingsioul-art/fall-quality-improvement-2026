@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>腫瘤專科病房跌倒品質改善</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg-grad: linear-gradient(135deg, #0B1F3A 0%, #1A1A2E 100%);
+  --text-main: #F5F5F5; --text-sub: #B8C5D6;
+  --yellow: #FFD93D; --green: #6BCB77; --red: #FF6B6B;
+  --card-bg: rgba(255,255,255,0.06); --card-border: rgba(255,255,255,0.12);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100vw; height: 100vh; overflow: hidden;
+  font-family: "Microsoft YaHei","微軟雅黑","Noto Sans TC",sans-serif;
+  color: var(--text-main); background: var(--bg-grad);
+}
+.deck { display: flex; width: 100vw; height: 100vh; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; }
+.deck::-webkit-scrollbar { display: none; }
+.slide { flex: 0 0 100vw; width: 100vw; height: 100vh; scroll-snap-align: start;
+  padding: 28px 54px 56px; display: flex; flex-direction: column;
+  background: var(--bg-grad); position: relative; overflow: hidden; }
+.slide h1 { font-size: 42px; font-weight: 700; margin-bottom: 2px; }
+.slide h2 { font-size: 22px; color: var(--text-sub); font-weight: 400; margin-bottom: 12px; }
+.slide p, .slide li { font-size: 22px; line-height: 1.45; }
+
+#dotnav { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 7px; z-index: 30; flex-wrap: wrap; max-width: 90vw; justify-content: center;}
+#dotnav .dot { width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(255,255,255,0.25); cursor: pointer; transition: all 0.2s; }
+#dotnav .dot.active { background: var(--yellow); transform: scale(1.3); }
+#dotnav .dot:hover { background: rgba(255,255,255,0.6); }
+.pageNum { position: absolute; right: 26px; bottom: 12px;
+  font-size: 20px; color: var(--text-sub); font-weight: 500; z-index: 5; }
+.arrow { position: fixed; top: 50%; transform: translateY(-50%);
+  width: 48px; height: 68px; background: rgba(0,0,0,0.4);
+  color: var(--text-main); border: none; font-size: 24px; cursor: pointer;
+  opacity: 0; transition: opacity 0.3s; z-index: 25; border-radius: 6px; }
+body:hover .arrow { opacity: 0.75; }
+.arrow:hover { opacity: 1; background: rgba(0,0,0,0.6); }
+.arrow.left { left: 8px; } .arrow.right { right: 8px; }
+
+/* Download PDF button */
+.dl-btn { position: fixed; top: 16px; right: 18px; z-index: 35;
+  background: var(--yellow); color: #1A1A2E; border: none;
+  padding: 9px 18px; border-radius: 8px; cursor: pointer;
+  font-size: 16px; font-weight: 700; font-family: inherit;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3); transition: transform 0.15s; }
+.dl-btn:hover { transform: scale(1.05); background: #FFE36A; }
+
+/* ====== Print / PDF 樣式 ====== */
+@media print {
+  @page { size: 1366px 768px; margin: 0; }
+  html, body { width: 1366px; height: auto; overflow: visible !important; background: var(--bg-grad); }
+  .deck { display: block !important; width: 1366px !important; height: auto !important; overflow: visible !important; }
+  .slide { page-break-after: always; break-after: page;
+    width: 1366px !important; height: 768px !important; flex: none !important;
+    background: var(--bg-grad) !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .slide:last-child { page-break-after: auto; }
+  #dotnav, .arrow, .dl-btn { display: none !important; }
+  video { display: none !important; }
+  .cover { grid-template-columns: 1fr !important; }
+  .cover > div:last-child { display: none; }
+}
+
+/* Slide 1 */
+.cover { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; flex: 1; align-items: center; min-height: 0; }
+.cover .lead { font-size: 70px; font-weight: 800; line-height: 1.15; }
+.cover .lead .accent { color: var(--yellow); }
+.cover .sub { font-size: 22px; color: var(--text-sub); margin-top: 18px; line-height: 1.5; }
+.cover video { width: 100%; max-height: 72vh; border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4); border: 2px solid var(--card-border); }
+.cover .footer { font-size: 18px; color: var(--text-sub); margin-top: 20px; }
+
+/* Slide 2 */
+.flow { display: flex; justify-content: space-between; align-items: center;
+  gap: 8px; margin: 16px 0 12px; }
+.flow .node { background: var(--card-bg); border: 2px solid var(--card-border);
+  border-radius: 14px; padding: 14px 10px; text-align: center; flex: 1;
+  display: flex; flex-direction: column; align-items: center; min-height: 130px; justify-content: center; }
+.flow .node .icon { font-size: 38px; margin-bottom: 6px; }
+.flow .node .title { font-size: 21px; font-weight: 600; color: var(--yellow); }
+.flow .node .desc { font-size: 15px; color: var(--text-sub); margin-top: 4px; line-height: 1.35; }
+.flow .arrow-right { font-size: 34px; color: var(--green); flex: 0 0 auto; }
+.badge-ok { display: inline-block; padding: 6px 18px; background: var(--green); color: #062B0E;
+  border-radius: 999px; font-size: 20px; font-weight: 700; margin: 6px 0 10px; }
+.condition-box { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: auto; }
+.condition-box .cond { background: var(--card-bg); border: 1.5px solid var(--card-border);
+  border-radius: 12px; padding: 12px 18px; }
+.condition-box .cond .label { font-size: 19px; color: var(--yellow); font-weight: 600; }
+.condition-box .cond .big { font-size: 32px; font-weight: 800; margin: 2px 0; }
+.condition-box .cond .desc { font-size: 17px; color: var(--text-sub); line-height: 1.4; }
+
+/* Slide 3 */
+.bullets-large { display: flex; flex-direction: column; gap: 14px; flex: 1; justify-content: center; }
+.bullets-large .item { display: flex; gap: 22px; align-items: flex-start;
+  background: var(--card-bg); border-left: 6px solid var(--yellow);
+  padding: 18px 24px; border-radius: 8px; }
+.bullets-large .item .num { font-size: 42px; font-weight: 800; color: var(--yellow); flex: 0 0 auto; line-height: 1; }
+.bullets-large .item .txt { font-size: 24px; line-height: 1.4; }
+.bullets-large .item.hilite { border-left-color: var(--green); }
+.bullets-large .item.hilite .num { color: var(--green); }
+
+/* Slide 4 */
+.score-flow { display: flex; align-items: center; justify-content: center;
+  gap: 44px; margin-top: 16px; }
+.score-box { background: var(--card-bg); border: 2px solid var(--card-border);
+  padding: 28px 38px; border-radius: 16px; text-align: center; }
+.score-box .lab { font-size: 22px; color: var(--text-sub); }
+.score-box .val { font-size: 76px; font-weight: 800; line-height: 1; }
+.score-box.alert { border-color: var(--red); } .score-box.alert .val { color: var(--red); }
+.big-arrow { font-size: 72px; color: var(--yellow); display: flex; flex-direction: column; align-items: center; }
+.big-arrow .delta { font-size: 22px; color: var(--red); font-weight: 700; margin-top: 4px; }
+.note-card { margin-top: 26px; background: var(--card-bg); border-left: 6px solid var(--green);
+  padding: 16px 22px; border-radius: 8px; }
+.note-card .ttl { font-size: 22px; font-weight: 600; color: var(--green); margin-bottom: 4px; }
+.note-card .bd { font-size: 19px; line-height: 1.5; }
+
+/* Slide 5 */
+.tl-wrap { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.timeline { position: relative; padding: 0 60px; width: 100%;
+  display: flex; justify-content: space-between; align-items: center; height: 220px; }
+.timeline::before { content: ''; position: absolute; top: 50%; left: 60px; right: 60px;
+  height: 4px; background: var(--yellow); transform: translateY(-50%); }
+.tl-stop { background: var(--bg-grad); border: 3px solid var(--yellow);
+  border-radius: 50%; width: 26px; height: 26px; z-index: 2; position: relative; }
+.tl-card-up, .tl-card-dn { position: absolute; transform: translateX(-50%);
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 10px; padding: 12px 16px; min-width: 220px; text-align: center; }
+.tl-card-up { bottom: 60%; } .tl-card-dn { top: 60%; }
+.tl-card-up .date, .tl-card-dn .date { font-size: 26px; font-weight: 700; color: var(--yellow); margin-bottom: 3px; }
+.tl-card-up .body, .tl-card-dn .body { font-size: 17px; line-height: 1.4; }
+
+/* Slide 6 */
+.gauge-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  flex: 1; min-height: 0; align-content: center; }
+.gauge-card { background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 12px; padding: 8px 6px 10px; display: flex; flex-direction: column; align-items: center; }
+.gauge-card.spotlight { border-color: var(--yellow); background: rgba(255,217,61,0.08); }
+.gauge-card .gauge-canvas { width: 100%; height: 105px; position: relative; }
+.gauge-card .gauge-canvas canvas { max-height: 105px; }
+.gauge-card .ward { font-size: 19px; font-weight: 700; color: var(--yellow); margin-bottom: 3px; }
+.gauge-card .val { font-size: 24px; font-weight: 700; }
+.gauge-card .num-den { font-size: 15px; color: var(--text-sub); }
+.note-foot { font-size: 15px; color: var(--text-sub); margin-top: 6px; text-align: center; }
+
+/* Slide 7 */
+.cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; flex: 1; min-height: 0; }
+.cat-card { background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 14px; padding: 14px 18px; display: flex; flex-direction: column; min-height: 0; }
+.cat-card .ht { font-size: 24px; font-weight: 600; color: var(--yellow); margin-bottom: 2px; }
+.cat-card .sub { font-size: 17px; color: var(--text-sub); margin-bottom: 5px; }
+.cat-card .canvas-wrap { flex: 1.4; min-height: 0; position: relative; }
+.cat-card .legend-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.cat-card .legend-list .row { display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 12px; border-radius: 8px; background: rgba(255,255,255,0.05); }
+.cat-card .legend-list .row .l { display: flex; align-items: center; gap: 10px; font-size: 17px; }
+.cat-card .legend-list .row .sw { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
+.cat-card .legend-list .row .v { font-size: 19px; font-weight: 700; }
+
+/* Slide 8 — 卡方圖表化 */
+.s8-layout { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; flex: 1; min-height: 0; }
+.s8-chart { background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 14px; padding: 16px 20px; display: flex; flex-direction: column; }
+.s8-chart .ht { font-size: 22px; font-weight: 600; color: var(--yellow); margin-bottom: 4px; }
+.s8-chart .canvas-wrap { flex: 1; min-height: 0; position: relative; }
+.s8-side { display: flex; flex-direction: column; gap: 12px; }
+.s8-headline { font-size: 28px; font-weight: 700; padding: 14px 18px;
+  border-radius: 10px; background: rgba(255,107,107,0.12); border-left: 6px solid var(--red); line-height: 1.4;}
+.s8-headline .em { color: var(--red); font-size: 34px; }
+.s8-summary { background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 10px; padding: 14px 18px; }
+.s8-summary .lab { font-size: 18px; color: var(--text-sub); margin-bottom: 4px; }
+.s8-summary .body { font-size: 18px; line-height: 1.5; }
+.s8-summary .em { color: var(--yellow); font-weight: 700; }
+
+/* Slide 9 */
+.chi-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; flex: 1; min-height: 0; }
+.chi-left { background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 12px; padding: 12px 16px; overflow: auto; }
+.chi-table { width: 100%; border-collapse: collapse; font-size: 19px; }
+.chi-table th, .chi-table td { padding: 7px 6px; border-bottom: 1px solid var(--card-border); text-align: center; }
+.chi-table th { background: rgba(255,255,255,0.08); font-size: 17px; color: var(--yellow); }
+.chi-table td.row-h { font-weight: 700; color: var(--yellow); text-align: left; }
+.chi-table tr.total-row td { background: rgba(255,217,61,0.08); font-weight: 700; }
+.chi-right { display: flex; flex-direction: column; gap: 10px; }
+.stat-card { background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 10px; padding: 12px 16px; }
+.stat-card .lab { font-size: 17px; color: var(--text-sub); }
+.stat-card .val { font-size: 32px; font-weight: 700; color: var(--yellow); }
+.stat-card .sub { font-size: 15px; color: var(--text-sub); margin-top: 2px; }
+.conclusion-big { background: rgba(255,107,107,0.12); border: 2px solid var(--red);
+  padding: 12px; border-radius: 12px; font-size: 20px; font-weight: 700;
+  text-align: center; margin-top: auto; }
+
+/* Slide 10 likert */
+.likert-wrap { flex: 1; min-height: 0; position: relative; margin-top: 4px; }
+
+/* Slide 11 radar */
+.radar-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; flex: 1; min-height: 0; }
+.radar-wrap { background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 14px; padding: 12px 18px; position: relative; min-height: 0; }
+.radar-side { display: flex; flex-direction: column; gap: 10px; }
+.radar-card { background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 10px; padding: 12px 16px; }
+.radar-card .ttl { font-size: 19px; color: var(--yellow); font-weight: 600; margin-bottom: 4px; }
+.radar-card ul { list-style: none; padding: 0; }
+.radar-card li { font-size: 17px; line-height: 1.45; margin-bottom: 3px; padding-left: 14px; position: relative; }
+.radar-card li::before { content: '▸'; position: absolute; left: 0; color: var(--yellow); }
+
+/* Slide 12 客製化指導 */
+.s12-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+.s12-tag { display: inline-block; padding: 8px 26px; background: rgba(255,217,61,0.15);
+  color: var(--yellow); border: 2px solid var(--yellow); border-radius: 999px;
+  font-size: 20px; font-weight: 700; }
+.s12-headline { font-size: 32px; font-weight: 700; text-align: center; line-height: 1.4; max-width: 900px; }
+.s12-headline .em { color: var(--yellow); }
+.s12-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 1000px; width: 100%; margin-top: 6px; }
+.s12-pill { padding: 12px 16px; border-radius: 12px; background: var(--card-bg); border-top: 5px solid; text-align: center; }
+.s12-pill.l { border-top-color: var(--green); }
+.s12-pill.m { border-top-color: var(--yellow); }
+.s12-pill.h { border-top-color: var(--red); }
+.s12-pill .name { font-size: 22px; font-weight: 700; margin-bottom: 3px; }
+.s12-pill.l .name { color: var(--green); }
+.s12-pill.m .name { color: var(--yellow); }
+.s12-pill.h .name { color: var(--red); }
+.s12-pill .rng { font-size: 16px; color: var(--text-sub); }
+.s12-note { font-size: 18px; color: var(--text-sub); text-align: center; }
+
+/* Slide 13 audit */
+.audit-chart-wrap { flex: 1; min-height: 0; position: relative; margin-top: 6px;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 12px; padding: 12px 18px; }
+
+/* Slide 14 = audit table + baseline progress */
+.s14-grid { flex: 1; min-height: 0; display: grid; grid-template-rows: 1.6fr 1fr; gap: 14px; }
+.audit-table-wrap { min-height: 0; overflow: auto;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 12px; padding: 12px 16px; }
+.audit-table { width: 100%; border-collapse: collapse; font-size: 19px; }
+.audit-table th, .audit-table td { padding: 9px 5px; border-bottom: 1px solid var(--card-border); text-align: center; }
+.audit-table th { background: rgba(255,255,255,0.1); color: var(--yellow); font-size: 16px; line-height: 1.3; }
+.audit-table tr.total td { background: rgba(255,217,61,0.08); font-weight: 700; color: var(--yellow); }
+.audit-table tr:nth-child(even) td { background: rgba(255,255,255,0.03); }
+.audit-table .pct { color: var(--text-sub); font-size: 16px; margin-left: 2px; }
+
+/* Slide 14 progress block */
+.progress-block { background: rgba(107,203,119,0.1);
+  border: 2px solid var(--green); border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 14px 22px; gap: 28px; min-height: 0; }
+.progress-block .ttl { font-size: 22px; color: var(--yellow); font-weight: 700; }
+.progress-block .v { font-size: 50px; font-weight: 800; line-height: 1; }
+.progress-block .v.from { color: var(--text-sub); }
+.progress-block .v.to { color: var(--green); }
+.progress-block .arrow { position: static; opacity: 1; font-size: 36px; color: var(--text-sub);
+  width: auto; height: auto; background: transparent; transform: none; }
+.progress-block .delta { font-size: 22px; color: var(--green); font-weight: 700;
+  padding: 4px 14px; background: rgba(107,203,119,0.2); border-radius: 999px; }
+.progress-block .lab-sm { font-size: 16px; color: var(--text-sub); }
+
+/* Slide 15 invitation */
+.invite-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center;
+  align-items: center; gap: 30px; text-align: center; }
+.invite-icon { font-size: 90px; }
+.invite-title { font-size: 60px; font-weight: 800; color: var(--yellow); line-height: 1.2; }
+.invite-sub { font-size: 28px; color: var(--text-sub); max-width: 1000px; line-height: 1.6; }
+.invite-questions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; width: 100%; max-width: 1100px; }
+.invite-q { background: var(--card-bg); border: 1.5px solid var(--card-border);
+  border-radius: 12px; padding: 18px 22px; text-align: left; }
+.invite-q .num { font-size: 32px; font-weight: 800; color: var(--yellow); }
+.invite-q .qtxt { font-size: 20px; line-height: 1.45; margin-top: 6px; }
+
+/* Slide 16 結論 */
+.s16-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; flex: 1; min-height: 0; }
+.s16-card { background: var(--card-bg); border-top: 5px solid;
+  border-radius: 12px; padding: 18px 22px; display: flex; flex-direction: column; }
+.s16-card.c1 { border-top-color: var(--yellow); }
+.s16-card.c2 { border-top-color: var(--green); }
+.s16-card.c3 { border-top-color: var(--red); }
+.s16-card .icon { font-size: 38px; }
+.s16-card .ttl { font-size: 26px; font-weight: 700; margin: 6px 0 10px; }
+.s16-card.c1 .ttl { color: var(--yellow); }
+.s16-card.c2 .ttl { color: var(--green); }
+.s16-card.c3 .ttl { color: var(--red); }
+.s16-card p { font-size: 21px; color: var(--text-main); line-height: 1.55; }
+
+</style>
+</head>
+<body>
+
+<button class="dl-btn" onclick="downloadPDF()" title="下載 PDF — 選擇『另存為 PDF』即可">📥 下載 PDF</button>
+<button class="arrow left" onclick="goPrev()">‹</button>
+<button class="arrow right" onclick="goNext()">›</button>
+
+<div class="deck" id="deck">
+
+<!-- 1 -->
+<section class="slide"><div class="cover">
+  <div>
+    <div class="lead">入院用藥評估<br>風險<span class="accent">一手掌握</span></div>
+    <div class="sub">只在電腦平台使用<br>入院護理師於工作車電腦填寫</div>
+    <div class="footer">腫瘤專科病房跌倒品質改善</div>
+  </div>
+  <div><video src="media/app-demo.mp4" controls muted loop autoplay playsinline></video></div>
+</div><div class="pageNum">1 / 16</div></section>
+
+<!-- 2 -->
+<section class="slide">
+  <h1>自動寄信給藥師</h1>
+  <h2>護理師填表 → 系統判斷 → 自動發信 → 藥師接手</h2>
+  <div class="flow">
+    <div class="node"><div class="icon">👩‍⚕️</div><div class="title">護理師填表</div><div class="desc">入院用藥評估</div></div>
+    <div class="arrow-right">▶</div>
+    <div class="node"><div class="icon">⚙️</div><div class="title">系統判斷</div><div class="desc">符合 A 或 B 條件</div></div>
+    <div class="arrow-right">▶</div>
+    <div class="node"><div class="icon">📧</div><div class="title">自動發信</div><div class="desc">系統觸發、無需人工</div></div>
+    <div class="arrow-right">▶</div>
+    <div class="node"><div class="icon">💊</div><div class="title">藥師接手</div><div class="desc">提供用藥衛教</div></div>
+  </div>
+  <div class="badge-ok">✓ 2026/05/11 已與關如珺藥師確認功能正常</div>
+  <div class="condition-box">
+    <div class="cond"><div class="label">條件 A</div><div class="big">4 類藥</div><div class="desc">同時使用 4 類以上 不同類別的跌倒風險藥品</div></div>
+    <div class="cond"><div class="label">條件 B</div><div class="big">同類 2 種</div><div class="desc">同一類別使用 2 種以上 高跌倒風險藥品</div></div>
+  </div>
+  <div class="pageNum">2 / 16</div>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <h1>使用瓶頸：要登入 Microsoft 365</h1>
+  <h2>登入意願會影響系統使用率</h2>
+  <div class="bullets-large">
+    <div class="item"><div class="num">1</div><div class="txt">每次都要登入，護理師覺得麻煩</div></div>
+    <div class="item"><div class="num">2</div><div class="txt">如果工作車已經登入，用起來就順</div></div>
+    <div class="item hilite"><div class="num">3</div><div class="txt"><b>建議：推 Copilot 一起用</b><br>讓護理師有理由保持 M365 登入</div></div>
+  </div>
+  <div class="pageNum">3 / 16</div>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <h1>分數增加 ≥ 3 分要照會藥師</h1>
+  <h2>由品管護理師通知</h2>
+  <div class="score-flow">
+    <div class="score-box"><div class="lab">前次</div><div class="val">4</div></div>
+    <div class="big-arrow">➜<div class="delta">差 ≥ 3 分要警示</div></div>
+    <div class="score-box alert"><div class="lab">本次</div><div class="val">8</div></div>
+  </div>
+  <div class="note-card">
+    <div class="ttl">📊 已有報表系統幫忙</div>
+    <div class="bd">每日整理增分名單 → 品管護理師收到後 → Email 通知藥師</div>
+  </div>
+  <div class="pageNum">4 / 16</div>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <h1>害怕跌倒評估表 — 試行時間軸</h1>
+  <h2>由病人 / 家屬 / 護理師協助填寫</h2>
+  <div class="tl-wrap"><div class="timeline">
+    <div style="position:relative;"><div class="tl-stop"></div>
+      <div class="tl-card-up" style="left:50%;">
+        <div class="date">04/27</div>
+        <div class="body">各單位開始試行</div>
+      </div>
+    </div>
+    <div style="position:relative;"><div class="tl-stop"></div>
+      <div class="tl-card-dn" style="left:50%;">
+        <div class="date">05/04</div>
+        <div class="body">每週回饋護理長</div>
+      </div>
+    </div>
+  </div></div>
+  <div class="pageNum">5 / 16</div>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <h1>各單位填答率</h1>
+  <h2>FES-I 害怕跌倒量表 — 住院當天填答覆蓋率</h2>
+  <div class="gauge-grid" id="gaugeGrid"></div>
+  <div class="note-foot">分母 = 入院人次（排除轉入） ｜ 分子 = 住院當天填答人次 ｜ 區間 2026/04/27 ~ 05/19</div>
+  <div class="pageNum">6 / 16</div>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+  <h1>整體分數分布</h1>
+  <h2>跌倒評估 ≤3 低風險 / >3 高風險 ｜ FES-I 7-8 低度 / 9-13 中度 / ≥14 高度</h2>
+  <div class="cat-grid">
+    <div class="cat-card">
+      <div class="ht">跌倒危險性評估分級</div>
+      <div class="sub" id="riskSub"></div>
+      <div class="canvas-wrap"><canvas id="riskDonut"></canvas></div>
+      <div class="legend-list" id="riskLegend"></div>
+    </div>
+    <div class="cat-card">
+      <div class="ht">害怕跌倒(FES-I) 分級</div>
+      <div class="sub" id="fesiSub"></div>
+      <div class="canvas-wrap"><canvas id="fesiDonut"></canvas></div>
+      <div class="legend-list" id="fesiLegend"></div>
+    </div>
+  </div>
+  <div class="pageNum">7 / 16</div>
+</section>
+
+<!-- 8 卡方圖表化 -->
+<section class="slide">
+  <h1>跌倒風險 × 害怕跌倒分數</h1>
+  <h2>切點：0-2 分為低風險、≥3 分為高風險（n=118）</h2>
+  <div class="s8-layout">
+    <div class="s8-chart">
+      <div class="ht">兩組病人的 FES-I 擔憂分布</div>
+      <div class="canvas-wrap"><canvas id="s8Bar"></canvas></div>
+    </div>
+    <div class="s8-side">
+      <div class="s8-headline">高風險病人裡<br><span class="em">80.4%</span> 同時是高度擔憂者</div>
+      <div class="s8-summary">
+        <div class="lab">低風險組 (n=67)</div>
+        <div class="body">高度擔憂 <span class="em">49.3%</span>、中度 20.9%、低度 29.9%</div>
+      </div>
+      <div class="s8-summary">
+        <div class="lab">高風險組 (n=51)</div>
+        <div class="body">高度擔憂 <span class="em">80.4%</span>、中度 11.8%、低度 7.8%</div>
+      </div>
+    </div>
+  </div>
+  <div class="pageNum">8 / 16</div>
+</section>
+
+<!-- 9 -->
+<section class="slide">
+  <h1>卡方檢定結果</h1>
+  <h2>跌倒風險 × 害怕跌倒分級顯著相關</h2>
+  <div class="chi-layout">
+    <div class="chi-left"><table class="chi-table" id="chiTable"></table></div>
+    <div class="chi-right">
+      <div class="stat-card"><div class="lab">卡方值</div>
+        <div class="val" id="chiStat"></div><div class="sub" id="chiSub"></div></div>
+      <div class="stat-card"><div class="lab">效應量 Cramer's V</div>
+        <div class="val" id="chiV"></div><div class="sub">中度效應 ｜ 期望值&lt;5 = 0 格</div></div>
+      <div class="conclusion-big">→ 害怕跌倒程度需要分級指導</div>
+    </div>
+  </div>
+  <div class="pageNum">9 / 16</div>
+</section>
+
+<!-- 10 -->
+<section class="slide">
+  <h1>FES-I 各題擔憂程度</h1>
+  <h2>7 題在 4 等級的分布（n=118）</h2>
+  <div class="likert-wrap"><canvas id="likertChart"></canvas></div>
+  <div class="pageNum">10 / 16</div>
+</section>
+
+<!-- 11 -->
+<section class="slide">
+  <h1>FES-I 個別化指導方向</h1>
+  <h2>雷達圖：≥65 / &lt;65 / 整體平均（n=118）</h2>
+  <div class="radar-layout">
+    <div class="radar-wrap"><canvas id="radarChart"></canvas></div>
+    <div class="radar-side">
+      <div class="radar-card">
+        <div class="ttl">⚠ 年長者全面較擔憂</div>
+        <ul>
+          <li>≥65 歲 7 個題項都高於 &lt;65 歲</li>
+          <li>差距最大：拿高/低處物品 (+0.54)</li>
+          <li>差距次大：外出社交 (+0.40)</li>
+        </ul>
+      </div>
+      <div class="radar-card">
+        <div class="ttl">🎯 高擔憂題項</div>
+        <ul>
+          <li>上下樓梯：平均最高 2.40</li>
+          <li>泡澡或淋浴：浴室風險意識強</li>
+          <li>穿脫衣服：擔憂最低 (盲點)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="pageNum">11 / 16</div>
+</section>
+
+<!-- 12 -->
+<section class="slide">
+  <h1>FES-I 個別化指導方向</h1>
+  <h2>三個擔憂等級對應不同活動指導 — 後續方向</h2>
+  <div class="s12-wrap">
+    <div class="s12-tag">後續計畫</div>
+    <div class="s12-headline">
+      將與<span class="em">物理治療師</span>討論，<br>
+      設計<span class="em">三個擔憂等級</span>的<span class="em">活動指導內容</span>
+    </div>
+    <div class="s12-grid3">
+      <div class="s12-pill l"><div class="name">低度擔憂</div><div class="rng">7-8 分</div></div>
+      <div class="s12-pill m"><div class="name">中度擔憂</div><div class="rng">9-13 分</div></div>
+      <div class="s12-pill h"><div class="name">高度擔憂</div><div class="rng">≥14 分</div></div>
+    </div>
+    <div class="s12-note">具體指導與追蹤頻次將於跨團隊會議定案</div>
+  </div>
+  <div class="pageNum">12 / 16</div>
+</section>
+
+<!-- 13 -->
+<section class="slide">
+  <h1>預防跌倒檢核紀錄落實查核</h1>
+  <h2>2026/04/27–05/15 ｜ 三單位 ｜ ≥65 歲 ｜ 排除休假 ｜ n=76</h2>
+  <div class="audit-chart-wrap"><canvas id="auditChart"></canvas></div>
+  <div class="pageNum">13 / 16</div>
+</section>
+
+<!-- 14 -->
+<section class="slide">
+  <h1>各單位落實明細</h1>
+  <h2>對應 page 13 圖表的次數與百分比</h2>
+  <div class="s14-grid">
+    <div class="audit-table-wrap"><table class="audit-table" id="auditTable"></table></div>
+    <div class="progress-block">
+      <div>
+        <div class="lab-sm">FES-I 試行成果</div>
+        <div class="ttl">填答率進步幅度</div>
+      </div>
+      <div style="text-align:center;">
+        <div class="lab-sm">Baseline</div>
+        <div class="v from">19.1%</div>
+      </div>
+      <div style="font-size:36px; color:var(--text-sub);">→</div>
+      <div style="text-align:center;">
+        <div class="lab-sm">目前</div>
+        <div class="v to">26.3%</div>
+      </div>
+      <div class="delta">+7.2 個百分點</div>
+    </div>
+  </div>
+  <div class="pageNum">14 / 16</div>
+</section>
+
+<!-- 15 留白邀請 -->
+<section class="slide">
+  <div class="invite-wrap">
+    <div class="invite-icon">🎤</div>
+    <div class="invite-title">請各單位護理長分享經驗</div>
+    <div class="invite-sub">填答率達成或未達成？病房推動的關鍵是什麼？<br>對推廣到其他單位有什麼建議？</div>
+    <div class="invite-questions">
+      <div class="invite-q"><div class="num">1</div><div class="qtxt">病房是怎麼讓護理師願意推 FES-I 的？</div></div>
+      <div class="invite-q"><div class="num">2</div><div class="qtxt">遇到的困難是什麼？怎麼解決？</div></div>
+      <div class="invite-q"><div class="num">3</div><div class="qtxt">有沒有特殊族群（識字差、意識差）的處理經驗？</div></div>
+    </div>
+  </div>
+  <div class="pageNum">15 / 16</div>
+</section>
+
+<!-- 16 結論 -->
+<section class="slide">
+  <h1>結論與下一步</h1>
+  <h2>三個議題待跨團隊定案</h2>
+  <div class="s16-grid">
+    <div class="s16-card c1">
+      <div class="icon">💻</div>
+      <div class="ttl">APP 何時上線？</div>
+      <p>系統功能已就緒。等主管確認啟用時機，建議搭配 M365、Copilot 一起推。</p>
+    </div>
+    <div class="s16-card c2">
+      <div class="icon">📋</div>
+      <div class="ttl">害怕跌倒評估要推廣</div>
+      <p>05W2 (60%)、04W2 (51%) 是標竿。可把他們的做法擴散到低填答率的單位。</p>
+    </div>
+    <div class="s16-card c3">
+      <div class="icon">✍</div>
+      <div class="ttl">簽名落實的阻礙</div>
+      <p>「無此表單」多數是評估為低風險。<br>少數「未簽名」要再了解原因。</p>
+    </div>
+  </div>
+  <div class="pageNum">16 / 16</div>
+</section>
+
+</div>
+<div id="dotnav"></div>
+
+<script>
+const DATA = {"slide6": [{"ward": "04W2", "lt65": {"num": 37, "den": 66, "pct": 56.1}, "ge65": {"num": 14, "den": 34, "pct": 41.2}, "total": {"num": 51, "den": 100, "pct": 51.0}}, {"ward": "05W2", "lt65": {"num": 32, "den": 55, "pct": 58.2}, "ge65": {"num": 22, "den": 35, "pct": 62.9}, "total": {"num": 54, "den": 90, "pct": 60.0}}, {"ward": "05W3", "lt65": {"num": 3, "den": 48, "pct": 6.2}, "ge65": {"num": 5, "den": 33, "pct": 15.2}, "total": {"num": 8, "den": 81, "pct": 9.9}}, {"ward": "05W4", "lt65": {"num": 3, "den": 65, "pct": 4.6}, "ge65": {"num": 2, "den": 34, "pct": 5.9}, "total": {"num": 5, "den": 99, "pct": 5.1}}, {"ward": "06E2", "lt65": {"num": 0, "den": 29, "pct": 0.0}, "ge65": {"num": 0, "den": 22, "pct": 0.0}, "total": {"num": 0, "den": 51, "pct": 0.0}}, {"ward": "06W3", "lt65": {"num": 0, "den": 51, "pct": 0.0}, "ge65": {"num": 0, "den": 24, "pct": 0.0}, "total": {"num": 0, "den": 75, "pct": 0.0}}, {"ward": "全部", "lt65": {"num": 75, "den": 314, "pct": 23.9}, "ge65": {"num": 43, "den": 182, "pct": 23.6}, "total": {"num": 118, "den": 496, "pct": 23.8}}], "slide7": {"risk": {"low": 306, "high": 192, "total": 498}, "fesi": {"low": 24, "mid": 20, "high": 74, "total": 118}}, "slide8": {"low": {"fesi_low": 20, "fesi_mid": 14, "fesi_high": 33, "total": 67, "fesi_low_pct": 29.9, "fesi_mid_pct": 20.9, "fesi_high_pct": 49.3}, "high": {"fesi_low": 4, "fesi_mid": 6, "fesi_high": 41, "total": 51, "fesi_low_pct": 7.8, "fesi_mid_pct": 11.8, "fesi_high_pct": 80.4}}, "slide9": {"crosstab": [{"風險二分": "低危險(<3)", "低度擔憂(<=8)": 20, "中度擔憂(9-13)": 14, "高度擔憂(14-28)": 33, "合計": 67}, {"風險二分": "高危險(>=3)", "低度擔憂(<=8)": 4, "中度擔憂(9-13)": 6, "高度擔憂(14-28)": 41, "合計": 51}, {"風險二分": "合計", "低度擔憂(<=8)": 24, "中度擔憂(9-13)": 20, "高度擔憂(14-28)": 74, "合計": 118}], "crosstab_pct": [{"風險二分": "低危險(<3)", "低度擔憂(<=8)": 29.9, "中度擔憂(9-13)": 20.9, "高度擔憂(14-28)": 49.3}, {"風險二分": "高危險(>=3)", "低度擔憂(<=8)": 7.8, "中度擔憂(9-13)": 11.8, "高度擔憂(14-28)": 80.4}], "stats": {"樣本數 N": 118, "卡方 χ²": 12.7973, "自由度 df": 2, "p 值": "0.001664", "Cramer's V (效應量)": 0.3293, "期望值<5格數": "0/6", "結論": "p<0.05 顯著相關"}}, "slide10": [{"item": "穿脫衣服", "opt1": 35.6, "opt2": 33.9, "opt3": 21.2, "opt4": 9.3}, {"item": "泡澡或淋浴", "opt1": 28.0, "opt2": 28.0, "opt3": 23.7, "opt4": 20.3}, {"item": "從椅子站起來或坐下", "opt1": 30.5, "opt2": 33.9, "opt3": 22.0, "opt4": 13.6}, {"item": "上下樓梯", "opt1": 22.0, "opt2": 37.3, "opt3": 19.5, "opt4": 21.2}, {"item": "拿高於頭頂或放在地上的東西", "opt1": 24.6, "opt2": 33.9, "opt3": 22.9, "opt4": 18.6}, {"item": "上下斜坡", "opt1": 22.9, "opt2": 35.6, "opt3": 21.2, "opt4": 20.3}, {"item": "外出參加社交活動(如宗教活動、聚餐)", "opt1": 32.2, "opt2": 33.1, "opt3": 16.1, "opt4": 18.6}], "slide11": {"items": ["穿脫衣服", "泡澡或淋浴", "坐起或站立", "上下樓梯", "拿高/低處物品", "上下斜坡", "外出社交活動"], "ge65": [2.23, 2.53, 2.42, 2.6, 2.7, 2.6, 2.47], "lt65": [1.93, 2.27, 2.05, 2.28, 2.16, 2.27, 2.07], "mean": [2.04, 2.36, 2.19, 2.4, 2.36, 2.39, 2.21]}, "slide13": {"pct_by_ward": [{"病房": "04W2", "未簽名": 20.8, "無此表單": 37.5, "病人意識不清楚，由主要照顧者簽名": 0, "病人意識清楚，由主要照顧者簽名": 29.2, "病人簽名": 12.5}, {"病房": "05W2", "未簽名": 25.9, "無此表單": 40.7, "病人意識不清楚，由主要照顧者簽名": 0, "病人意識清楚，由主要照顧者簽名": 0.0, "病人簽名": 33.3}, {"病房": "05W4", "未簽名": 0.0, "無此表單": 48.0, "病人意識不清楚，由主要照顧者簽名": 4, "病人意識清楚，由主要照顧者簽名": 16.0, "病人簽名": 32.0}], "cnt_by_ward": [{"病房": "04W2", "未簽名": 5, "無此表單": 9, "病人意識不清楚，由主要照顧者簽名": 0, "病人意識清楚，由主要照顧者簽名": 7, "病人簽名": 3, "合計": 24}, {"病房": "05W2", "未簽名": 7, "無此表單": 11, "病人意識不清楚，由主要照顧者簽名": 0, "病人意識清楚，由主要照顧者簽名": 0, "病人簽名": 9, "合計": 27}, {"病房": "05W4", "未簽名": 0, "無此表單": 12, "病人意識不清楚，由主要照顧者簽名": 1, "病人意識清楚，由主要照顧者簽名": 4, "病人簽名": 8, "合計": 25}, {"病房": "合計", "未簽名": 12, "無此表單": 32, "病人意識不清楚，由主要照顧者簽名": 1, "病人意識清楚，由主要照顧者簽名": 11, "病人簽名": 20, "合計": 76}]}};
+const TOTAL = 16;
+
+const deck = document.getElementById('deck');
+const dotnav = document.getElementById('dotnav');
+let cur = 0;
+for (let i=0; i<TOTAL; i++) {
+  const d = document.createElement('span');
+  d.className = 'dot' + (i===0?' active':'');
+  d.onclick = () => jump(i);
+  dotnav.appendChild(d);
+}
+function update() {
+  cur = Math.round(deck.scrollLeft / window.innerWidth);
+  cur = Math.max(0, Math.min(TOTAL-1, cur));
+  document.querySelectorAll('#dotnav .dot').forEach((d,i)=>d.classList.toggle('active', i===cur));
+}
+deck.addEventListener('scroll', () => requestAnimationFrame(update));
+function jump(i) { deck.scrollTo({left: window.innerWidth*i, behavior:'smooth'}); }
+function goPrev() { if (cur>0) jump(cur-1); }
+function goNext() { if (cur<TOTAL-1) jump(cur+1); }
+document.addEventListener('keydown', (e) => {
+  if (e.key==='ArrowLeft' || e.key==='PageUp') goPrev();
+  if (e.key==='ArrowRight' || e.key==='PageDown' || e.key===' ') goNext();
+});
+let wheelLock = false;
+deck.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  if (wheelLock) return;
+  if (Math.abs(e.deltaY)<20 && Math.abs(e.deltaX)<20) return;
+  wheelLock = true;
+  if (e.deltaY>0 || e.deltaX>0) goNext(); else goPrev();
+  setTimeout(()=>{wheelLock=false;}, 500);
+}, {passive: false});
+
+Chart.defaults.color = '#F5F5F5';
+Chart.defaults.font.family = '"Microsoft YaHei","微軟雅黑","Noto Sans TC",sans-serif';
+Chart.defaults.font.size = 14;
+
+function renderGauges() {
+  const grid = document.getElementById('gaugeGrid');
+  grid.innerHTML = '';
+  DATA.slide6.forEach((rec) => {
+    const card = document.createElement('div');
+    card.className = 'gauge-card' + (rec.ward==='全部'?' spotlight':'');
+    card.innerHTML = `<div class="ward">${rec.ward}</div>
+      <div class="gauge-canvas"><canvas></canvas></div>
+      <div class="val">${rec.total.pct.toFixed(1)}%</div>
+      <div class="num-den">${rec.total.num} / ${rec.total.den}</div>`;
+    grid.appendChild(card);
+    const ctx = card.querySelector('canvas').getContext('2d');
+    const pct = rec.total.pct;
+    const color = pct>=50?'#6BCB77':(pct>=20?'#FFD93D':'#FF6B6B');
+    new Chart(ctx, {type:'doughnut',
+      data:{datasets:[{data:[pct,100-pct], backgroundColor:[color,'rgba(255,255,255,0.08)'],
+        borderWidth:0, circumference:180, rotation:270, cutout:'72%'}]},
+      options:{plugins:{legend:{display:false},tooltip:{enabled:false}}, animation:{duration:700}}});
+  });
+}
+
+function renderRiskDonuts() {
+  const r = DATA.slide7.risk, f = DATA.slide7.fesi;
+  document.getElementById('riskSub').textContent = `N = ${r.total}`;
+  document.getElementById('fesiSub').textContent = `N = ${f.total}`;
+  const colorsR=['#6BCB77','#FF6B6B'], labelsR=['低風險 (≤3)','高風險 (>3)'], valsR=[r.low,r.high];
+  new Chart(document.getElementById('riskDonut').getContext('2d'), {type:'doughnut',
+    data:{labels:labelsR, datasets:[{data:valsR, backgroundColor:colorsR, borderWidth:2, borderColor:'#0B1F3A'}]},
+    options:{responsive:true, maintainAspectRatio:false, cutout:'55%',
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed} 人 (${(c.parsed/r.total*100).toFixed(1)}%)`}}}}});
+  document.getElementById('riskLegend').innerHTML = labelsR.map((l,i)=>
+    `<div class="row"><div class="l"><span class="sw" style="background:${colorsR[i]}"></span>${l}</div>
+     <div class="v">${valsR[i]} 人 (${(valsR[i]/r.total*100).toFixed(1)}%)</div></div>`).join('');
+  const colorsF=['#6BCB77','#FFD93D','#FF6B6B'], labelsF=['低度擔憂 (7-8)','中度擔憂 (9-13)','高度擔憂 (≥14)'], valsF=[f.low,f.mid,f.high];
+  new Chart(document.getElementById('fesiDonut').getContext('2d'), {type:'doughnut',
+    data:{labels:labelsF, datasets:[{data:valsF, backgroundColor:colorsF, borderWidth:2, borderColor:'#0B1F3A'}]},
+    options:{responsive:true, maintainAspectRatio:false, cutout:'55%',
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed} 人 (${(c.parsed/f.total*100).toFixed(1)}%)`}}}}});
+  document.getElementById('fesiLegend').innerHTML = labelsF.map((l,i)=>
+    `<div class="row"><div class="l"><span class="sw" style="background:${colorsF[i]}"></span>${l}</div>
+     <div class="v">${valsF[i]} 人 (${(valsF[i]/f.total*100).toFixed(1)}%)</div></div>`).join('');
+}
+
+function renderS8() {
+  const d = DATA.slide8;
+  const labels = [`低風險 (0-2) n=${d.low.total}`, `高風險 (≥3) n=${d.high.total}`];
+  new Chart(document.getElementById('s8Bar').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {label:'低度擔憂 (≤8)',   data:[d.low.fesi_low_pct, d.high.fesi_low_pct],   backgroundColor:'#6BCB77'},
+        {label:'中度擔憂 (9-13)', data:[d.low.fesi_mid_pct, d.high.fesi_mid_pct],   backgroundColor:'#FFD93D'},
+        {label:'高度擔憂 (≥14)',  data:[d.low.fesi_high_pct, d.high.fesi_high_pct], backgroundColor:'#FF6B6B'},
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {position:'top', labels:{font:{size:17}, boxWidth:18, padding:10}},
+        tooltip: {callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)}%`}},
+      },
+      scales: {
+        x: {stacked:true, ticks:{font:{size:21, weight:'600'}}, grid:{display:false},
+            title:{display:true, text:'跌倒風險分數', font:{size:18}}},
+        y: {stacked:true, max:100, ticks:{font:{size:17}, callback:v=>v+'%'},
+            grid:{color:'rgba(255,255,255,0.15)'},
+            title:{display:true, text:'佔比 (%)', font:{size:18}}},
+      }
+    }
+  });
+}
+
+function renderChi() {
+  const ct = DATA.slide9.crosstab, ctp = DATA.slide9.crosstab_pct, stats = DATA.slide9.stats;
+  let html = `<thead><tr><th>跌倒風險</th><th>低度(≤8)</th><th>中度(9-13)</th><th>高度(≥14)</th><th>合計</th></tr></thead><tbody>`;
+  ct.forEach(row => {
+    const cls = row['風險二分']==='合計'?'total-row':'';
+    html += `<tr class="${cls}"><td class="row-h">${row['風險二分']}</td>
+      <td>${row['低度擔憂(<=8)']}</td><td>${row['中度擔憂(9-13)']}</td>
+      <td>${row['高度擔憂(14-28)']}</td><td>${row['合計']}</td></tr>`;
+  });
+  html += '</tbody><thead><tr><th colspan="5" style="background:rgba(255,217,61,0.1); padding-top:10px;">列百分比 (%)</th></tr></thead><tbody>';
+  ctp.forEach(row => {
+    html += `<tr><td class="row-h">${row['風險二分']}</td>
+      <td>${Number(row['低度擔憂(<=8)']).toFixed(1)}%</td>
+      <td>${Number(row['中度擔憂(9-13)']).toFixed(1)}%</td>
+      <td><b style="color:#FF6B6B">${Number(row['高度擔憂(14-28)']).toFixed(1)}%</b></td><td>-</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('chiTable').innerHTML = html;
+  document.getElementById('chiStat').textContent = `χ² = ${Number(stats['卡方 χ²']).toFixed(2)}`;
+  document.getElementById('chiSub').textContent = `df = 2 ｜ p = ${stats['p 值']} ✓ 顯著`;
+  document.getElementById('chiV').textContent = Number(stats["Cramer's V (效應量)"]).toFixed(3);
+}
+
+function renderLikert() {
+  const items = DATA.slide10;
+  new Chart(document.getElementById('likertChart').getContext('2d'), {type:'bar',
+    data:{labels:items.map(x=>x.item), datasets:[
+      {label:'1.一點都不會留心', data:items.map(x=>x.opt1), backgroundColor:'#9DCEFF'},
+      {label:'2.稍微會留心', data:items.map(x=>x.opt2), backgroundColor:'#4FA3E3'},
+      {label:'3.相當留心', data:items.map(x=>x.opt3), backgroundColor:'#FFA552'},
+      {label:'4.極度留心', data:items.map(x=>x.opt4), backgroundColor:'#FF6B6B'}]},
+    options:{indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'top', labels:{font:{size:17}, padding:8, boxWidth:14}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.x.toFixed(1)}%`}}},
+      scales:{x:{stacked:true, max:100, ticks:{font:{size:15}, callback:v=>v+'%'}, grid:{color:'rgba(255,255,255,0.15)'}},
+        y:{stacked:true, ticks:{font:{size:15}}, grid:{color:'rgba(255,255,255,0.05)'}}}}});
+}
+
+function renderRadar() {
+  const s = DATA.slide11;
+  new Chart(document.getElementById('radarChart').getContext('2d'), {
+    type:'radar',
+    data:{labels:s.items,
+      datasets:[
+        {label:'≥65 歲 (n=43)', data:s.ge65, backgroundColor:'rgba(255,107,107,0.25)',
+         borderColor:'#FF6B6B', borderWidth:2.5, pointBackgroundColor:'#FF6B6B', pointRadius:4},
+        {label:'<65 歲 (n=75)', data:s.lt65, backgroundColor:'rgba(107,203,119,0.18)',
+         borderColor:'#6BCB77', borderWidth:2.5, pointBackgroundColor:'#6BCB77', pointRadius:4},
+        {label:'整體平均 (n=118)', data:s.mean, backgroundColor:'rgba(255,217,61,0.0)',
+         borderColor:'#FFD93D', borderWidth:2.5, borderDash:[6,5],
+         pointBackgroundColor:'#FFD93D', pointRadius:5},
+      ]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'top', labels:{font:{size:17}, padding:8, boxWidth:16}}},
+      scales:{r:{min:1, max:4, ticks:{stepSize:1, font:{size:13}, color:'#B8C5D6', backdropColor:'transparent'},
+        pointLabels:{font:{size:15, weight:'600'}, color:'#F5F5F5'},
+        grid:{color:'rgba(255,255,255,0.2)'}, angleLines:{color:'rgba(255,255,255,0.2)'}}}}
+  });
+}
+
+function renderAuditChart() {
+  const pcts = DATA.slide13.pct_by_ward;
+  const wards = pcts.map(r=>r['病房']);
+  const cats = ['病人簽名','病人意識清楚，由主要照顧者簽名','病人意識不清楚，由主要照顧者簽名','未簽名','無此表單'];
+  const colors = ['#1A5E8E','#2D80BC','#4FA3D9','#82C0E5','#BFD9EB'];
+  const datasets = cats.map((cat,i)=>({label:cat, data:pcts.map(r=>Number(r[cat])), backgroundColor:colors[i]}));
+  new Chart(document.getElementById('auditChart').getContext('2d'), {type:'bar',
+    data:{labels:wards, datasets},
+    options:{indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'top', labels:{font:{size:16}, boxWidth:16, padding:8}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.x.toFixed(1)}%`}}},
+      scales:{x:{stacked:true, max:100, ticks:{font:{size:17}, callback:v=>v+'%'}, grid:{color:'rgba(255,255,255,0.15)'}},
+        y:{stacked:true, ticks:{font:{size:24, weight:'600'}}, grid:{color:'rgba(255,255,255,0.05)'}}}}});
+}
+
+function renderAuditTable() {
+  const cnt = DATA.slide13.cnt_by_ward;
+  // 表頭與 page 13 chart legend 相同（長名稱）
+  let html = `<thead><tr><th>病房</th>
+    <th>病人簽名</th>
+    <th>病人意識清楚<br>由主要照顧者簽名</th>
+    <th>病人意識不清楚<br>由主要照顧者簽名</th>
+    <th>未簽名</th>
+    <th>無此表單</th>
+    <th>合計</th></tr></thead><tbody>`;
+  cnt.forEach(r=>{
+    const cls = r['病房']==='合計'?'total':'';
+    const total = r['合計'];
+    const pf = n => total?(n/total*100).toFixed(1)+'%':'0%';
+    html += `<tr class="${cls}"><td>${r['病房']}</td>
+      <td>${r['病人簽名']}<span class="pct">(${pf(r['病人簽名'])})</span></td>
+      <td>${r['病人意識清楚，由主要照顧者簽名']}<span class="pct">(${pf(r['病人意識清楚，由主要照顧者簽名'])})</span></td>
+      <td>${r['病人意識不清楚，由主要照顧者簽名']}<span class="pct">(${pf(r['病人意識不清楚，由主要照顧者簽名'])})</span></td>
+      <td>${r['未簽名']}<span class="pct">(${pf(r['未簽名'])})</span></td>
+      <td>${r['無此表單']}<span class="pct">(${pf(r['無此表單'])})</span></td>
+      <td><b>${r['合計']}</b></td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('auditTable').innerHTML = html;
+}
+
+window.addEventListener('load', () => {
+  renderGauges(); renderRiskDonuts(); renderS8(); renderChi();
+  renderLikert(); renderRadar(); renderAuditChart(); renderAuditTable();
+});
+window.addEventListener('resize', update);
+
+// 下載 PDF：用瀏覽器原生「列印 → 另存為 PDF」
+// 提示使用者在列印對話框選 [儲存為 PDF]
+function downloadPDF() {
+  alert('系統將開啟列印對話框\\n\\n請：\\n1. 目的地選「儲存為 PDF」(Save as PDF)\\n2. 紙張方向選「橫向」(Landscape)\\n3. 邊界選「無」(None)\\n4. 縮放選「100%」(預設)\\n5. 按儲存\\n\\n之後即可將 PDF 分享給他人。');
+  setTimeout(() => window.print(), 200);
+}
+</script>
+</body>
+</html>
