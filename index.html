@@ -2,6 +2,8 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>腫瘤專科病房跌倒品質改善</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -20,12 +22,14 @@ html, body {
 .deck { display: flex; width: 100vw; height: 100vh; overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; }
 .deck::-webkit-scrollbar { display: none; }
-.slide { flex: 0 0 100vw; width: 100vw; height: 100vh; scroll-snap-align: start;
-  padding: 14px 30px 44px; display: flex; flex-direction: column;
+.slide { flex: 0 0 100vw; width: 100vw; height: 100vh; height: 100dvh;
+  scroll-snap-align: start;
+  padding: clamp(10px, 1.5vw, 18px) clamp(14px, 2.4vw, 36px) clamp(28px, 3.6vw, 50px);
+  display: flex; flex-direction: column;
   background: var(--bg-grad); position: relative; overflow: hidden; }
-.slide h1 { font-size: 56px; font-weight: 700; margin-bottom: 4px; line-height: 1.15; }
-.slide h2 { font-size: 40px; color: var(--text-sub); font-weight: 400; margin-bottom: 14px; line-height: 1.25; }
-.slide p, .slide li { font-size: 24px; line-height: 1.45; }
+.slide h1 { font-size: clamp(26px, 4.2vw, 64px); font-weight: 700; margin-bottom: 4px; line-height: 1.15; }
+.slide h2 { font-size: clamp(16px, 3vw, 44px); color: var(--text-sub); font-weight: 400; margin-bottom: clamp(8px, 1vw, 14px); line-height: 1.25; }
+.slide p, .slide li { font-size: clamp(14px, 1.7vw, 26px); line-height: 1.45; }
 
 /* ====== 動畫 ====== */
 .anim { opacity: 0; transform: translateY(36px); transition: opacity 0.7s ease-out, transform 0.7s ease-out; }
@@ -63,6 +67,78 @@ body:hover .arrow { opacity: 0.75; }
   font-size: 16px; font-weight: 700; font-family: inherit;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3); transition: transform 0.15s; }
 .dl-btn:hover { transform: scale(1.05); background: #FFE36A; }
+
+/* ====== RWD 響應式：手機 / 平板 / 投影幕 ====== */
+/* 平板直立 / 小筆電 (< 1024px) */
+@media (max-width: 1023px) {
+  .gauge-grid { grid-template-columns: repeat(3, 1fr); }
+  /* (intentionally kept) */
+  .flow .node { min-height: 110px; padding: 10px 6px; }
+  .flow .arrow-right { font-size: 26px; }
+}
+
+/* 手機 (< 768px) — 重大版面變更：grids 改單欄 */
+@media (max-width: 767px) {
+  /* Slides 可垂直捲動 */
+  .slide { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* 所有 2-3 欄 grid 改為單欄 */
+  .cover, .cat-grid, .decision-grid, .s2-layout, .s8-layout,
+  .chi-layout, .radar-layout, .invite-questions, .s16-grid,
+  .condition-box, .bench-grid, .s12-grid3 {
+    grid-template-columns: 1fr !important;
+  }
+  /* Gauge 兩欄一行 */
+  .gauge-grid { grid-template-columns: repeat(2, 1fr); }
+  /* 流程改縱向 */
+  .flow { flex-direction: column; gap: 6px; }
+  .flow .arrow-right { transform: rotate(90deg); font-size: 20px; }
+  .flow .node { min-height: 80px; width: 100%; }
+  /* Timeline 簡化 */
+  .timeline { flex-direction: column; height: auto; padding: 16px 0; gap: 60px; }
+  .timeline::before { display: none; }
+  .tl-card-up, .tl-card-dn { position: static; transform: none; }
+  /* Score flow */
+  .score-flow { flex-direction: column; gap: 16px; }
+  .big-arrow { transform: rotate(90deg); }
+  /* 影片 */
+  .cover video, .s2-right video { max-height: 35vh; }
+  /* Bullets 縮窄 */
+  .bullets-large .item { padding: 12px 14px; gap: 12px; }
+  .bullets-large .item .num { font-size: 32px; }
+  /* PDF 按鈕縮小 */
+  .dl-btn { padding: 6px 12px; font-size: 12px; top: 6px; right: 6px; }
+  /* 不顯示左右箭頭 (用觸控滑動) */
+  .arrow { display: none; }
+  /* 圓點 nav 緊湊 */
+  #dotnav { gap: 5px; bottom: 8px; }
+  #dotnav .dot { width: 8px; height: 8px; }
+  /* PageNum */
+  .pageNum { right: 12px; bottom: 6px; font-size: 14px; }
+  /* 內部 padding */
+  .dec-card, .bench-card, .s16-card, .invite-q,
+  .stat-card, .radar-card, .s8-summary, .cat-card,
+  .chi-left, .audit-table-wrap, .audit-chart-wrap,
+  .s8-chart, .radar-wrap, .progress-block {
+    padding: 12px 14px !important;
+  }
+  /* 表格字級 */
+  .audit-table, .chi-table { font-size: 12px; }
+  .audit-table .pct { font-size: 11px; }
+  /* App stage 縱向時間軸調整 */
+  .app-tl { padding-left: 32px; }
+  .app-tl::before { left: 13px; }
+  .app-stage::before { left: -26px; width: 16px; height: 16px; }
+  /* Progress block 改縱向 */
+  .progress-block { flex-direction: column; gap: 8px; padding: 12px; }
+  .progress-block .v { font-size: 36px; }
+}
+
+/* 大型投影幕 / 4K (>1920px) — 字體再放大 */
+@media (min-width: 1920px) {
+  .slide h1 { font-size: clamp(64px, 3.8vw, 92px); }
+  .slide h2 { font-size: clamp(44px, 2.6vw, 64px); }
+  .slide p, .slide li { font-size: clamp(26px, 1.5vw, 36px); }
+}
 
 @media print {
   @page { size: 1366px 768px; margin: 0; }
@@ -159,7 +235,7 @@ body:hover .arrow { opacity: 0.75; }
 .score-box { background: var(--card-bg); border: 2px solid var(--card-border);
   padding: 28px 38px; border-radius: 16px; text-align: center; }
 .score-box .lab { font-size: 22px; color: var(--text-sub); }
-.score-box .val { font-size: 76px; font-weight: 800; line-height: 1; }
+.score-box .val { font-size: clamp(40px, 5.5vw, 80px); font-weight: 800; line-height: 1; }
 .score-box.alert { border-color: var(--red); } .score-box.alert .val { color: var(--red); }
 .big-arrow { font-size: 72px; color: var(--yellow); display: flex; flex-direction: column; align-items: center; }
 .big-arrow .delta { font-size: 22px; color: var(--red); font-weight: 700; margin-top: 4px; }
@@ -300,9 +376,9 @@ body:hover .arrow { opacity: 0.75; }
 
 .invite-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center;
   align-items: center; gap: 30px; text-align: center; }
-.invite-icon { font-size: 90px; }
-.invite-title { font-size: 76px; font-weight: 800; color: var(--yellow); line-height: 1.2; }
-.invite-sub { font-size: 36px; color: var(--text-sub); max-width: 1100px; line-height: 1.6; }
+.invite-icon { font-size: clamp(50px, 8vw, 110px); }
+.invite-title { font-size: clamp(34px, 6.5vw, 90px); font-weight: 800; color: var(--yellow); line-height: 1.2; }
+.invite-sub { font-size: clamp(18px, 2.6vw, 42px); color: var(--text-sub); max-width: 1100px; line-height: 1.6; }
 .invite-questions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; width: 100%; max-width: 1100px; }
 .invite-q { background: var(--card-bg); border: 1.5px solid var(--card-border);
   border-radius: 12px; padding: 18px 22px; text-align: left; }
